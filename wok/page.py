@@ -103,14 +103,20 @@ class Page(object):
             elif len(splits) == 2:
                 header = splits[0]
                 page.meta = yaml.load(header)
-                page.original = splits[1]
+                # prepend X newlines to original document, where X
+                # is number of lines of metadata (including "---"
+                # delimiter).  Fix for issue #145: rendering error
+                # line numbers are incorrect.
+                newlines = '\n' * (2+header.count('\n'))
+                page.original = newlines + splits[1]
                 page.original_preview = page.meta.get('preview', '')
 
             elif len(splits) >= 3:
                 header = splits[0]
                 page.meta = {}
-                page.original = '\n'.join(splits[1:])
-                page.original_preview = splits[1]
+                newlines = '\n' * (2+header.count('\n'))
+                page.original = newlines + '\n'.join(splits[1:])
+                page.original_preview = newlines + splits[1]
                 page.meta.update(yaml.load(header))
                 logging.debug('Got preview')
 

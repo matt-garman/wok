@@ -12,11 +12,23 @@ except ImportError:
 # List of available renderers
 all = []
 
+def factory(filename):
+    ext = filename.split('.')[-1]
+    for r in all:
+        for e in r.extensions:
+            if ext == e:
+                if r == ReStructuredText:
+                    return r(filename)
+                else:
+                    return r()
+    logging.warning('No parser found for {0}. '
+        'Using default renderer.'.format(filename))
+    return Renderer() # no matches found, return default
+
 class Renderer(object):
     extensions = []
 
-    @classmethod
-    def render(cls, plain, source_path=None):
+    def render(self, plain):
         return plain
 all.append(Renderer)
 
@@ -24,8 +36,7 @@ class Plain(Renderer):
     """Plain text renderer. Replaces new lines with html </br>s"""
     extensions = ['txt']
 
-    @classmethod
-    def render(cls, plain, source_path=None):
+    def render(self, plain):
         return plain.replace('\n', '<br>')
 all.append(Plain)
 
@@ -41,9 +52,8 @@ try:
         if have_pygments:
             plugins.extend(['codehilite(css_class=codehilite)', 'fenced_code'])
 
-        @classmethod
-        def render(cls, plain, source_path=None):
-            return markdown(plain, cls.plugins)
+        def render(self, plain):
+            return markdown(plain, Markdown.plugins)
 
     all.append(Markdown)
 
@@ -63,9 +73,8 @@ if markdown is None:
             if have_pygments:
                 extras.append('fenced-code-blocks')
 
-            @classmethod
-            def render(cls, plain, source_path=None):
-                return markdown2.markdown(plain, extras=cls.extras)
+            def render(self, plain):
+                return markdown2.markdown(plain, extras=Markdown2.extras)
 
         all.append(Markdown2)
     except ImportError:
@@ -86,10 +95,12 @@ try:
         """reStructuredText renderer."""
         extensions = ['rst']
 
-        @classmethod
-        def render(cls, plain, source_path=None):
+        def __init__(self, source_path=None):
+            self.source_path=source_path
+
+        def render(self, plain):
             w = rst_html_writer()
-            return docutils.core.publish_parts(plain, source_path=source_path, writer=w)['body']
+            return docutils.core.publish_parts(plain, source_path=self.source_path, writer=w)['body']
 
     all.append(ReStructuredText)
 except ImportError:
@@ -103,8 +114,7 @@ try:
         """Textile renderer."""
         extensions = ['textile']
 
-        @classmethod
-        def render(cls, plain, source_path=None):
+        def render(self, plain):
             return textile.textile(plain)
 
     all.append(Textile)

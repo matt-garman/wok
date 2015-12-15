@@ -358,13 +358,6 @@ class Engine(object):
                 if f.startswith('.'):
                     continue
 
-                #ext = f.split('.')[-1]
-                #renderer = self.renderers.get(ext)
-
-                #if renderer is None:
-                #    logging.warning('No parser found '
-                #            'for {0}. Using default renderer.'.format(f))
-                #    renderer = renderers.Renderer
                 renderer = renderers.factory(f)
 
                 p = Page.from_file(os.path.join(root, f), self.options, self, renderer)

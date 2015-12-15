@@ -342,7 +342,7 @@ class Page(object):
 
         self.engine.run_hook('page.meta.post', self)
 
-    def render(self, templ_vars=None, source_path=None):
+    def render(self, templ_vars=None):
         """
         Renders the page with the template engine.
         """

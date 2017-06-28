@@ -12,23 +12,11 @@ except ImportError:
 # List of available renderers
 all = []
 
-def factory(filename):
-    ext = filename.split('.')[-1]
-    for r in all:
-        for e in r.extensions:
-            if ext == e:
-                if r == ReStructuredText:
-                    return r(filename)
-                else:
-                    return r()
-    logging.warning('No parser found for {0}. '
-        'Using default renderer.'.format(filename))
-    return Renderer() # no matches found, return default
-
 class Renderer(object):
     extensions = []
 
-    def render(self, plain):
+    @classmethod
+    def render(cls, plain, page_meta):   # the page_meta might contain renderer options...
         return plain
 all.append(Renderer)
 
@@ -36,7 +24,8 @@ class Plain(Renderer):
     """Plain text renderer. Replaces new lines with html </br>s"""
     extensions = ['txt']
 
-    def render(self, plain):
+    @classmethod
+    def render(cls, plain, page_meta):
         return plain.replace('\n', '<br>')
 all.append(Plain)
 
@@ -48,12 +37,19 @@ try:
         """Markdown renderer."""
         extensions = ['markdown', 'mkd', 'md']
 
-        plugins = ['def_list', 'footnotes']
+        plugins = [
+            'markdown.extensions.def_list',
+            'markdown.extensions.headerid',
+            'markdown.extensions.tables',
+            'markdown.extensions.toc',
+            'markdown.extensions.footnotes'
+        ]
         if have_pygments:
             plugins.extend(['codehilite(css_class=codehilite)', 'fenced_code'])
 
-        def render(self, plain):
-            return markdown(plain, Markdown.plugins)
+        @classmethod
+        def render(cls, plain, page_meta):
+            return markdown(plain, extensions=cls.plugins)
 
     all.append(Markdown)
 
@@ -73,8 +69,9 @@ if markdown is None:
             if have_pygments:
                 extras.append('fenced-code-blocks')
 
-            def render(self, plain):
-                return markdown2.markdown(plain, extras=Markdown2.extras)
+            @classmethod
+            def render(cls, plain, page_meta):
+                return markdown2.markdown(plain, extras=cls.extras)
 
         all.append(Markdown2)
     except ImportError:
@@ -94,13 +91,23 @@ try:
     class ReStructuredText(Renderer):
         """reStructuredText renderer."""
         extensions = ['rst']
+        options = {}
 
-        def __init__(self, source_path=None):
-            self.source_path=source_path
-
-        def render(self, plain):
+        @classmethod
+        def render(cls, plain, page_meta):
             w = rst_html_writer()
-            return docutils.core.publish_parts(plain, source_path=self.source_path, writer=w)['body']
+            #return docutils.core.publish_parts(plain, writer=w)['body']
+            # Problem: missing heading and/or title if it's a lone heading
+            #
+            # Solution:
+            #     Disable the promotion of a lone top-level section title to document title
+            #     (and subsequent section title to document subtitle promotion)
+            #
+            #      http://docutils.sourceforge.net/docs/api/publisher.html#id3
+            #      http://docutils.sourceforge.net/docs/user/config.html#doctitle-xform
+            #
+            overrides = { 'doctitle_xform': page_meta.get('rst_doctitle', cls.options['doctitle']), }
+            return docutils.core.publish_parts(plain, writer=w, settings_overrides=overrides)['body']
 
     all.append(ReStructuredText)
 except ImportError:
@@ -114,7 +121,8 @@ try:
         """Textile renderer."""
         extensions = ['textile']
 
-        def render(self, plain):
+        @classmethod
+        def render(cls, plain, page_meta):
             return textile.textile(plain)
 
     all.append(Textile)
